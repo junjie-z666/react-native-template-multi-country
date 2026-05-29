@@ -1,0 +1,53 @@
+# Dependencies
+node_modules/
+
+# Yarn
+.pnp.cjs
+.pnp.loader.mjs
+.yarn/install-state.gz
+.yarn/cache/
+
+# Build outputs
+android/app/build/
+android/build/
+android/app/.cxx/
+android/.gradle/
+android/gradle/.gradle/
+
+# iOS build
+ios/build/
+ios/Pods/
+
+# Metro
+.metro-health-check*
+
+# Debug / temp
+*.apk
+*.aab
+*.log
+
+# IDE
+.idea/
+*.swp
+*.swo
+.agents
+skills-lock.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.*
+
+# Agent scratch files
+.scratch/multi-country-rn-demo/issues
+.agents/
+
+# Test coverage
+coverage/
+
+# React Native
+*.hprof
+
