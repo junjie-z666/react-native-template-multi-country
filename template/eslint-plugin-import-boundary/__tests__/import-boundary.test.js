@@ -1,58 +1,48 @@
-const {RuleTester} = require('eslint');
+const assert = require('assert');
+const {Linter} = require('eslint');
 const rule = require('../index').rules['import-boundary'];
-
-const ruleTester = new RuleTester({
-  parserOptions: {
-    ecmaVersion: 2022,
-    sourceType: 'module',
-  },
-});
 
 const projectRoot = '/project';
 
-ruleTester.run('import-boundary', rule, {
-  valid: [
-    // Country → Base: allowed
-    {
-      code: "import {AppShell} from '../base';",
-      filename: `${projectRoot}/src/cn/App.tsx`,
-      options: [{projectRoot}],
-    },
-    {
-      code: "import {AppShell} from '@base';",
-      filename: `${projectRoot}/src/cn/App.tsx`,
-      options: [{projectRoot}],
-    },
-    // Base → Base: allowed
-    {
-      code: "import {CountryConfig} from './types/CountryConfig';",
-      filename: `${projectRoot}/src/base/components/AppShell.tsx`,
-      options: [{projectRoot}],
-    },
-    // External imports: not checked
-    {
-      code: "import React from 'react';",
-      filename: `${projectRoot}/src/cn/App.tsx`,
-      options: [{projectRoot}],
-    },
-  ],
+function lint(code, filename) {
+  const linter = new Linter();
+  linter.defineRule('import-boundary', rule);
+  return linter.verify(code, {
+    parserOptions: {ecmaVersion: 2022, sourceType: 'module'},
+    rules: {'import-boundary': ['error', {projectRoot}]},
+  }, {filename});
+}
 
-  invalid: [
-    // Country → Country: blocked
-    {
-      code: "import {App} from '../mx/App';",
-      filename: `${projectRoot}/src/cn/App.tsx`,
-      options: [{projectRoot}],
-      errors: [{messageId: 'countryToCountry', data: {fromCountry: 'cn', toCountry: 'mx'}}],
-    },
-    // Base → Country: blocked
-    {
-      code: "import {cnConfig} from '../cn/App';",
-      filename: `${projectRoot}/src/base/components/AppShell.tsx`,
-      options: [{projectRoot}],
-      errors: [{messageId: 'baseToCountry', data: {toCountry: 'cn'}}],
-    },
-  ],
+describe('import-boundary', () => {
+  it('allows Country → Base', () => {
+    const errors = lint("import {AppShell} from '../base';", `${projectRoot}/src/cn/App.tsx`);
+    assert.strictEqual(errors.length, 0);
+  });
+
+  it('allows @base alias', () => {
+    const errors = lint("import {AppShell} from '@base';", `${projectRoot}/src/cn/App.tsx`);
+    assert.strictEqual(errors.length, 0);
+  });
+
+  it('allows Base → Base', () => {
+    const errors = lint("import {CountryConfig} from './types/CountryConfig';", `${projectRoot}/src/base/components/AppShell.tsx`);
+    assert.strictEqual(errors.length, 0);
+  });
+
+  it('allows external imports', () => {
+    const errors = lint("import React from 'react';", `${projectRoot}/src/cn/App.tsx`);
+    assert.strictEqual(errors.length, 0);
+  });
+
+  it('blocks Country → Country', () => {
+    const errors = lint("import {App} from '../mx/App';", `${projectRoot}/src/cn/App.tsx`);
+    assert.strictEqual(errors.length, 1);
+    assert.strictEqual(errors[0].messageId, 'countryToCountry');
+  });
+
+  it('blocks Base → Country', () => {
+    const errors = lint("import {cnConfig} from '../../cn/App';", `${projectRoot}/src/base/components/AppShell.tsx`);
+    assert.strictEqual(errors.length, 1);
+    assert.strictEqual(errors[0].messageId, 'baseToCountry');
+  });
 });
-
-console.log('All import-boundary tests passed!');

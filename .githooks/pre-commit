@@ -1,0 +1,6 @@
+#!/bin/sh
+# Get staged files under template/, strip prefix, run eslint
+files=$(git diff --cached --name-only --diff-filter=ACMR -- 'template/src/' | sed 's|^template/||')
+if [ -n "$files" ]; then
+  cd template && npx eslint --max-warnings=0 $files
+fi

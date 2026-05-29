@@ -17,15 +17,18 @@ function getCountryFromFilePath(filePath, projectRoot) {
   return null;
 }
 
-function isImportFromSrc(importPath, projectRoot) {
+function isImportFromSrc(importPath, projectRoot, fromFilePath) {
   if (importPath.startsWith('@base')) {
     return 'base';
   }
   if (!importPath.startsWith('.') && !importPath.startsWith('/')) {
     return null;
   }
-  const resolved = path.resolve(path.dirname(importPath), importPath);
-  return getCountryFromFilePath(resolved, projectRoot);
+  const srcRoot = path.join(projectRoot, 'src');
+  const relativeFromSrc = path.relative(srcRoot, fromFilePath);
+  const fromDirInSrc = path.dirname(relativeFromSrc);
+  const resolvedInSrc = path.resolve(path.join(srcRoot, fromDirInSrc), importPath);
+  return getCountryFromFilePath(resolvedInSrc, projectRoot);
 }
 
 const importBoundaryRule = {
@@ -65,7 +68,7 @@ const importBoundaryRule = {
         const fromCountry = getCountryFromFilePath(filePath, projectRoot);
         if (!fromCountry) return;
 
-        const toCountry = isImportFromSrc(importPath, projectRoot);
+        const toCountry = isImportFromSrc(importPath, projectRoot, filePath);
         if (!toCountry) return;
 
         if (fromCountry !== 'base' && toCountry !== 'base' && fromCountry !== toCountry) {
