@@ -11,7 +11,7 @@
     "init-country": "node scripts/post-init.js",
     "add-country": "node scripts/add-country.js",
     "remove-country": "node scripts/remove-country.js",
-    "setup-hooks": "git config core.hooksPath .husky/_"
+    "setup-hooks": "git config core.hooksPath .husky"
   },
   "dependencies": {
     "@react-native/new-app-screen": "0.81.6",
