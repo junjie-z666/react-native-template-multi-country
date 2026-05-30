@@ -84,14 +84,6 @@ async function main() {
   if (initMode) {
     console.log('[init] Project root:', projectRoot);
     fixPlaceholders();
-
-    // Initialize husky git hooks (prepare script may have run before .git existed)
-    try {
-      execSync('npx husky init', {cwd: projectRoot, stdio: 'inherit'});
-      console.log('[init] Husky git hooks initialized');
-    } catch (e) {
-      console.warn('[init] Warning: husky init failed, you may need to run "npx husky init" manually');
-    }
   }
 
   const info = await promptCountry();
@@ -110,8 +102,9 @@ async function main() {
   console.log('\nNext steps:');
   console.log('  1. Replace placeholder launcher icons');
   console.log('  2. Add translations in src/<country>/locales/');
-  console.log('  3. yarn start');
-  console.log('  4. npx react-native run-android --variant <country>Debug\n');
+  console.log('  3. npx husky init (enable git hooks for lint-staged)');
+  console.log('  4. yarn start');
+  console.log('  5. npx react-native run-android --variant <country>Debug\n');
 }
 
 main().catch(err => {
