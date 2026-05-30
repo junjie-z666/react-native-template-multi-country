@@ -73,7 +73,7 @@ function removeCountry(countryCode) {
 
   // 4. Remove flavor entry from build.gradle
   let updatedGradle = gradleContent;
-  const flavorEntryRegex = new RegExp(`\\n    ${countryCode}: \\[applicationId: "[^"]+", jsEntry: "index\\.${countryCode}", entryFile: "index\\.${countryCode}\\.js", activityName: "[^"]+"\\],?\\n`);
+  const flavorEntryRegex = new RegExp(`\\n    ${countryCode}: \\[applicationId: "[^"]+", jsEntry: "index\\.${countryCode}", entryFile: "index\\.${countryCode}\\.js", activityName: "[^"]+", mainComponentName: "[^"]+"\\],?\\n`);
   updatedGradle = updatedGradle.replace(flavorEntryRegex, '\n');
   fs.writeFileSync(gradlePath, updatedGradle);
   console.log(`  Updated: android/app/build.gradle`);

@@ -26,14 +26,7 @@ const apiBaseUrl = args[4] || `https://api.${countryCode}.example.com`;
 const defaultLocale = args[5] || `en-${countryCode.toUpperCase()}`;
 
 const projectRoot = process.cwd();
-
-// Read project name from app.json for mainComponentName
-const appJsonPath = path.join(projectRoot, 'app.json');
-let projectName = 'MyReactApp';
-if (fs.existsSync(appJsonPath)) {
-  const appJson = JSON.parse(fs.readFileSync(appJsonPath, 'utf8'));
-  projectName = appJson.name || projectName;
-}
+const componentName = `${countryCode}App`;
 
 // Check if country already exists
 const srcDir = path.join(projectRoot, 'src', countryCode);
@@ -69,9 +62,8 @@ console.log(`  Package: ${packageName}`);
 // 1. Create JS entry point
 fs.writeFileSync(entryFile, `import {AppRegistry} from 'react-native';
 import {App} from './src/${countryCode}/App';
-import {name as appName} from './app.json';
 
-AppRegistry.registerComponent(appName, () => App);
+AppRegistry.registerComponent('${componentName}', () => App);
 `);
 
 // 2. Create JS country directory and App.tsx
@@ -117,9 +109,7 @@ fs.writeFileSync(path.join(activityJavaDir, `${activityClassName}.kt`), `package
 
 import com.multi.template.BaseMainActivity
 
-class ${activityClassName} : BaseMainActivity() {
-  override fun getMainComponentName(): String = "${projectName}"
-}
+class ${activityClassName} : BaseMainActivity()
 `);
 
 // 4c. Create MainApplication for this country
@@ -167,7 +157,7 @@ for (const density of densities) {
 
 // 7. Update build.gradle — add entry to countryFlavors map
 let updatedGradle = gradleContent;
-const newFlavorEntry = `    ${countryCode}: [applicationId: "${applicationId}", jsEntry: "index.${countryCode}", entryFile: "index.${countryCode}.js", activityName: "${activityClassName}"],`;
+const newFlavorEntry = `    ${countryCode}: [applicationId: "${applicationId}", jsEntry: "index.${countryCode}", entryFile: "index.${countryCode}.js", activityName: "${activityClassName}", mainComponentName: "${componentName}"],`;
 
 // Find the countryFlavors map closing bracket and insert before it
 const flavorMapRegex = /ext\.countryFlavors\s*=\s*\[/;

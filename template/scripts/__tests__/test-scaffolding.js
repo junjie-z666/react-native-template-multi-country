@@ -207,6 +207,7 @@ try {
   const gradleContent = fs.readFileSync(gradlePath, 'utf8');
   assert(gradleContent.includes(`${TEST_COUNTRY}: [`), 'Gradle should contain country flavor');
   assert(gradleContent.includes(TEST_APP_ID), 'Gradle should contain applicationId');
+  assert(gradleContent.includes(`mainComponentName: "${TEST_COUNTRY}App"`), 'Gradle should contain mainComponentName');
   console.log('  PASS: Gradle config updated correctly');
 
   // Test: country-dirs.json updated
@@ -240,7 +241,6 @@ try {
   const activityContent = fs.readFileSync(activityFile, 'utf8');
   assert(activityContent.includes(`package ${TEST_PACKAGE}`), 'Activity should have custom package declaration');
   assert(activityContent.includes('BaseMainActivity'), 'Activity should extend BaseMainActivity');
-  assert(activityContent.includes('getMainComponentName'), 'Activity should override getMainComponentName');
   console.log('  PASS: --package parameter works correctly');
 
   // Test: MainApplication generated per country

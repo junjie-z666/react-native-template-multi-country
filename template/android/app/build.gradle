@@ -58,6 +58,7 @@ android {
                 dimension "country"
                 applicationId config.applicationId
                 buildConfigField "String", "JS_ENTRY", "\"${config.jsEntry}\""
+                buildConfigField "String", "MAIN_COMPONENT_NAME", "\"${config.mainComponentName}\""
             }
         }
     }

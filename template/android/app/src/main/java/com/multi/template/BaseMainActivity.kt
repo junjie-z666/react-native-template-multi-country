@@ -7,6 +7,8 @@ import com.facebook.react.defaults.DefaultReactActivityDelegate
 
 abstract class BaseMainActivity : ReactActivity() {
 
+  override fun getMainComponentName(): String = BuildConfig.MAIN_COMPONENT_NAME
+
   override fun createReactActivityDelegate(): ReactActivityDelegate =
       DefaultReactActivityDelegate(this, mainComponentName!!, fabricEnabled)
 }
