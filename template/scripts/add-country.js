@@ -190,3 +190,8 @@ if (fs.existsSync(countryDirsPath)) {
 
 console.log('');
 console.log(`Country '${countryCode}' has been added successfully!`);
+console.log('');
+console.log('Next steps:');
+console.log('  1. yarn setup-hooks (enable git hooks for lint-staged)');
+console.log('  2. yarn start');
+console.log(`  3. npx react-native run-android --variant ${countryCode}Debug`);

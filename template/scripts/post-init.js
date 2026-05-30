@@ -98,11 +98,7 @@ async function main() {
 
   console.log('\n========================================');
   console.log(initMode ? '  Setup complete!' : '  Country added!');
-  console.log('========================================');
-  console.log('\nNext steps:');
-  console.log('  1. yarn setup-hooks (enable git hooks for lint-staged)');
-  console.log('  2. yarn start');
-  console.log('  3. npx react-native run-android --variant <country>Debug\n');
+  console.log('========================================\n');
 }
 
 main().catch(err => {
