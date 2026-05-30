@@ -8,5 +8,5 @@ import com.facebook.react.defaults.DefaultReactActivityDelegate
 abstract class BaseMainActivity : ReactActivity() {
 
   override fun createReactActivityDelegate(): ReactActivityDelegate =
-      DefaultReactActivityDelegate(this, mainComponentName, fabricEnabled)
+      DefaultReactActivityDelegate(this, mainComponentName!!, fabricEnabled)
 }

@@ -164,6 +164,7 @@ assert(fs.existsSync(activityFile), `Activity file not found: ${activityFile}`);
 const activityContent = fs.readFileSync(activityFile, 'utf8');
 assert(activityContent.includes(`package ${TEST_PACKAGE}`), 'Activity should have custom package declaration');
 assert(activityContent.includes('BaseMainActivity'), 'Activity should extend BaseMainActivity');
+assert(activityContent.includes('getMainComponentName'), 'Activity should override getMainComponentName');
 console.log('  PASS: --package parameter works correctly');
 
 // Test: MainApplication generated per country

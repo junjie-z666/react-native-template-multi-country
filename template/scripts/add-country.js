@@ -27,6 +27,14 @@ const defaultLocale = args[5] || `en-${countryCode.toUpperCase()}`;
 
 const projectRoot = process.cwd();
 
+// Read project name from app.json for mainComponentName
+const appJsonPath = path.join(projectRoot, 'app.json');
+let projectName = 'MyReactApp';
+if (fs.existsSync(appJsonPath)) {
+  const appJson = JSON.parse(fs.readFileSync(appJsonPath, 'utf8'));
+  projectName = appJson.name || projectName;
+}
+
 // Check if country already exists
 const srcDir = path.join(projectRoot, 'src', countryCode);
 if (fs.existsSync(srcDir)) {
@@ -109,7 +117,9 @@ fs.writeFileSync(path.join(activityJavaDir, `${activityClassName}.kt`), `package
 
 import com.multi.template.BaseMainActivity
 
-class ${activityClassName} : BaseMainActivity()
+class ${activityClassName} : BaseMainActivity() {
+  override fun getMainComponentName(): String = "${projectName}"
+}
 `);
 
 // 4c. Create MainApplication for this country
