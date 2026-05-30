@@ -8,7 +8,8 @@
     "lint": "eslint .",
     "start": "react-native start",
     "test": "jest",
-    "init-country": "node scripts/post-init.js"
+    "init-country": "node scripts/post-init.js",
+    "setup-hooks": "git config core.hooksPath .husky/_"
   },
   "dependencies": {
     "@react-native/new-app-screen": "0.81.6",
