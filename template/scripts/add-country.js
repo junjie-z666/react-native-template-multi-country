@@ -4,8 +4,17 @@ const fs = require('fs');
 const path = require('path');
 
 const args = process.argv.slice(2);
+
+// Parse --package flag
+let packageName = 'com.helloworld';
+const packageIdx = args.indexOf('--package');
+if (packageIdx !== -1) {
+  packageName = args[packageIdx + 1];
+  args.splice(packageIdx, 2);
+}
+
 if (args.length < 3) {
-  console.error('Usage: add-country.js <country-code> <application-id> <activity-class-name> [app-name] [api-base-url] [default-locale]');
+  console.error('Usage: add-country.js <country-code> <application-id> <activity-class-name> [app-name] [api-base-url] [default-locale] [--package com.xxx.xxx]');
   process.exit(1);
 }
 
@@ -16,13 +25,7 @@ const appName = args[3] || `${countryCode.toUpperCase()} App`;
 const apiBaseUrl = args[4] || `https://api.${countryCode}.example.com`;
 const defaultLocale = args[5] || `en-${countryCode.toUpperCase()}`;
 
-const projectRoot = path.resolve(__dirname, '..');
-
-// Validate country code
-if (!/^[a-z]{2}$/.test(countryCode)) {
-  console.error('Error: Country code must be 2 lowercase letters (e.g., br, jp)');
-  process.exit(1);
-}
+const projectRoot = process.cwd();
 
 // Check if country already exists
 const srcDir = path.join(projectRoot, 'src', countryCode);
@@ -44,12 +47,16 @@ if (gradleContent.includes(`${countryCode}: [`)) {
   process.exit(1);
 }
 
+// Derive package path (com.mycompany.app -> com/mycompany/app)
+const packagePath = packageName.replace(/\./g, path.sep);
+
 console.log(`Adding country: ${countryCode}`);
 console.log(`  ApplicationId: ${applicationId}`);
 console.log(`  Activity: ${activityClassName}`);
 console.log(`  App name: ${appName}`);
 console.log(`  API BaseUrl: ${apiBaseUrl}`);
 console.log(`  Default locale: ${defaultLocale}`);
+console.log(`  Package: ${packageName}`);
 
 // 1. Create JS entry point
 fs.writeFileSync(entryFile, `import {AppRegistry} from 'react-native';
@@ -96,18 +103,28 @@ for (const density of densities) {
 fs.mkdirSync(path.join(androidSrcDir, 'values'), {recursive: true});
 
 // 4b. Create Android Activity class
-const activityJavaDir = path.join(projectRoot, 'android', 'app', 'src', countryCode, 'java', 'com', 'helloworld');
+const activityJavaDir = path.join(projectRoot, 'android', 'app', 'src', countryCode, 'java', ...packageName.split('.'));
 fs.mkdirSync(activityJavaDir, {recursive: true});
-fs.writeFileSync(path.join(activityJavaDir, `${activityClassName}.kt`), `package com.helloworld
+fs.writeFileSync(path.join(activityJavaDir, `${activityClassName}.kt`), `package ${packageName}
 
-class ${activityClassName} : BaseActivity()
+import com.multi.template.BaseMainActivity
+
+class ${activityClassName} : BaseMainActivity()
 `);
 
-// 4c. Create Android AndroidManifest.xml with launcher Activity
+// 4c. Create MainApplication for this country
+fs.writeFileSync(path.join(activityJavaDir, 'MainApplication.kt'), `package ${packageName}
+
+import com.multi.template.BaseApplication
+
+class MainApplication : BaseApplication()
+`);
+
+// 4d. Create Android AndroidManifest.xml with launcher Activity
 fs.writeFileSync(path.join(projectRoot, 'android', 'app', 'src', countryCode, 'AndroidManifest.xml'), `<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application>
+    <application android:name="${packageName}.MainApplication">
         <activity
-            android:name=".${activityClassName}"
+            android:name="${packageName}.${activityClassName}"
             android:label="@string/app_name"
             android:exported="true">
             <intent-filter>
@@ -161,21 +178,14 @@ if (match) {
 
 fs.writeFileSync(gradlePath, updatedGradle);
 
-// 8. Update ESLint plugin's countryDirs list
-const eslintPluginPath = path.join(projectRoot, 'eslint-plugin-import-boundary', 'index.js');
-if (fs.existsSync(eslintPluginPath)) {
-  let eslintContent = fs.readFileSync(eslintPluginPath, 'utf8');
-  eslintContent = eslintContent.replace(
-    /const countryDirs = \[([^\]]+)\]/,
-    (match, existing) => {
-      const dirs = existing.match(/'[^']+'/g) || [];
-      if (!dirs.includes(`'${countryCode}'`)) {
-        return `const countryDirs = [${existing}, '${countryCode}']`;
-      }
-      return match;
-    }
-  );
-  fs.writeFileSync(eslintPluginPath, eslintContent);
+// 8. Update ESLint plugin's countryDirs JSON file
+const countryDirsPath = path.join(projectRoot, 'eslint-plugin-import-boundary', 'country-dirs.json');
+if (fs.existsSync(countryDirsPath)) {
+  const countryDirs = JSON.parse(fs.readFileSync(countryDirsPath, 'utf8'));
+  if (!countryDirs.includes(countryCode)) {
+    countryDirs.push(countryCode);
+    fs.writeFileSync(countryDirsPath, JSON.stringify(countryDirs, null, 2) + '\n');
+  }
 }
 
 console.log('');

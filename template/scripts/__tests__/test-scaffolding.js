@@ -12,12 +12,16 @@ const TEST_ACTIVITY = 'BrasilActivity';
 const TEST_APP_NAME = 'BrasilApp';
 const TEST_API_URL = 'https://api.br.example.com';
 const TEST_LOCALE = 'pt-BR';
+const TEST_PACKAGE = 'com.test.myapp';
 
-function cleanup() {
+const gradlePath = path.join(projectRoot, 'android', 'app', 'build.gradle');
+const countryDirsPath = path.join(projectRoot, 'eslint-plugin-import-boundary', 'country-dirs.json');
+
+function cleanupCountry(code) {
   const paths = [
-    path.join(projectRoot, `src/${TEST_COUNTRY}`),
-    path.join(projectRoot, `index.${TEST_COUNTRY}.js`),
-    path.join(projectRoot, `android/app/src/${TEST_COUNTRY}`),
+    path.join(projectRoot, `src/${code}`),
+    path.join(projectRoot, `index.${code}.js`),
+    path.join(projectRoot, `android/app/src/${code}`),
   ];
   for (const p of paths) {
     if (fs.existsSync(p)) {
@@ -27,34 +31,31 @@ function cleanup() {
     }
   }
 
-  // Remove br from build.gradle countryFlavors
-  const gradlePath = path.join(projectRoot, 'android', 'app', 'build.gradle');
+  // Remove from build.gradle
   let content = fs.readFileSync(gradlePath, 'utf8');
-  content = content.replace(/\n    br: \[applicationId: "[^"]+", jsEntry: "index\.br", entryFile: "index\.br\.js", activityName: "[^"]+"\],/, '');
+  const regex = new RegExp(`\\n    ${code}: \\[.*?\\],?`, 'g');
+  content = content.replace(regex, '');
   fs.writeFileSync(gradlePath, content);
 
-  // Remove br from ESLint countryDirs
-  const eslintPluginPath = path.join(projectRoot, 'eslint-plugin-import-boundary', 'index.js');
-  if (fs.existsSync(eslintPluginPath)) {
-    let eslintContent = fs.readFileSync(eslintPluginPath, 'utf8');
-    eslintContent = eslintContent.replace(
-      /const countryDirs = \[([^\]]+)\]/,
-      (match, existing) => {
-        const dirs = existing.match(/'[^']+'/g) || [];
-        const filtered = dirs.filter(d => d !== "'br'");
-        return `const countryDirs = [${filtered.join(', ')}]`;
-      }
-    );
-    fs.writeFileSync(eslintPluginPath, eslintContent);
+  // Remove from country-dirs.json
+  if (fs.existsSync(countryDirsPath)) {
+    const dirs = JSON.parse(fs.readFileSync(countryDirsPath, 'utf8'));
+    const filtered = dirs.filter(d => d !== code);
+    fs.writeFileSync(countryDirsPath, JSON.stringify(filtered, null, 2) + '\n');
   }
 }
 
-function runAddScript(country, appId, activity, appName, apiUrl, locale) {
+function cleanupAll() {
+  for (const code of [TEST_COUNTRY, 'us', 'jp', 'cn']) {
+    cleanupCountry(code);
+  }
+}
+
+function runAddScript(country, appId, activity, appName, apiUrl, locale, packageName) {
   try {
-    const result = execSync(
-      `node "${addScriptPath}" ${country} "${appId}" "${activity}" "${appName}" "${apiUrl}" "${locale}"`,
-      {cwd: projectRoot, encoding: 'utf8'}
-    );
+    let cmd = `node "${addScriptPath}" ${country} "${appId}" "${activity}" "${appName}" "${apiUrl}" "${locale}"`;
+    if (packageName) cmd += ` --package "${packageName}"`;
+    const result = execSync(cmd, {cwd: projectRoot, encoding: 'utf8'});
     return {success: true, output: result};
   } catch (e) {
     return {success: false, output: e.stderr || e.stdout, code: e.status};
@@ -63,10 +64,7 @@ function runAddScript(country, appId, activity, appName, apiUrl, locale) {
 
 function runRemoveScript(country) {
   try {
-    const result = execSync(
-      `node "${removeScriptPath}" ${country}`,
-      {cwd: projectRoot, encoding: 'utf8'}
-    );
+    const result = execSync(`node "${removeScriptPath}" ${country}`, {cwd: projectRoot, encoding: 'utf8'});
     return {success: true, output: result};
   } catch (e) {
     return {success: false, output: e.stderr || e.stdout, code: e.status};
@@ -80,12 +78,16 @@ function assert(condition, message) {
   }
 }
 
+function getCountryDirs() {
+  return JSON.parse(fs.readFileSync(countryDirsPath, 'utf8'));
+}
+
 // =====================
 // ADD COUNTRY TESTS
 // =====================
 console.log(`Testing add-country script with country='${TEST_COUNTRY}'...`);
 
-cleanup();
+cleanupAll();
 
 const result = runAddScript(TEST_COUNTRY, TEST_APP_ID, TEST_ACTIVITY, TEST_APP_NAME, TEST_API_URL, TEST_LOCALE);
 assert(result.success, `Script should succeed: ${result.output}`);
@@ -126,11 +128,15 @@ for (const density of ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi', 'xxxhdpi']) {
 console.log('  PASS: Android mipmap directories generated correctly');
 
 // Test: Gradle config updated
-const gradlePath = path.join(projectRoot, 'android', 'app', 'build.gradle');
 const gradleContent = fs.readFileSync(gradlePath, 'utf8');
 assert(gradleContent.includes(`${TEST_COUNTRY}: [`), 'Gradle should contain country flavor');
 assert(gradleContent.includes(TEST_APP_ID), 'Gradle should contain applicationId');
 console.log('  PASS: Gradle config updated correctly');
+
+// Test: country-dirs.json updated
+const countryDirs = getCountryDirs();
+assert(countryDirs.includes(TEST_COUNTRY), 'country-dirs.json should contain new country');
+console.log('  PASS: country-dirs.json updated correctly');
 
 // Test: Rejects existing country
 const rejectResult = runAddScript(TEST_COUNTRY, TEST_APP_ID, TEST_ACTIVITY, TEST_APP_NAME, TEST_API_URL, TEST_LOCALE);
@@ -138,15 +144,48 @@ assert(!rejectResult.success, 'Script should fail for existing country');
 assert(rejectResult.output.includes('already exists'), 'Error message should mention "already exists"');
 console.log('  PASS: Rejects existing country code');
 
-// Test: Rejects invalid country code
-const invalidResult = runAddScript('USA', 'com.test.app', 'Test', 'Test', 'https://api.test.com', 'en-US');
-assert(!invalidResult.success, 'Script should fail for invalid country code');
-console.log('  PASS: Rejects invalid country code');
+// =====================
+// --PACKAGE TESTS
+// =====================
+console.log(`\nTesting --package parameter...`);
+
+// Add a second country so we can remove br
+runAddScript('us', 'com.us.app', 'UsActivity', 'USApp', 'https://api.us.example.com', 'en-US');
+runRemoveScript(TEST_COUNTRY);
+
+const pkgResult = runAddScript(TEST_COUNTRY, TEST_APP_ID, TEST_ACTIVITY, TEST_APP_NAME, TEST_API_URL, TEST_LOCALE, TEST_PACKAGE);
+assert(pkgResult.success, `Script with --package should succeed: ${pkgResult.output}`);
+
+// Test: Activity file uses custom package
+const activityDir = path.join(projectRoot, `android/app/src/${TEST_COUNTRY}/java/com/test/myapp`);
+assert(fs.existsSync(activityDir), `Activity dir should use custom package path: ${activityDir}`);
+const activityFile = path.join(activityDir, `${TEST_ACTIVITY}.kt`);
+assert(fs.existsSync(activityFile), `Activity file not found: ${activityFile}`);
+const activityContent = fs.readFileSync(activityFile, 'utf8');
+assert(activityContent.includes(`package ${TEST_PACKAGE}`), 'Activity should have custom package declaration');
+assert(activityContent.includes('BaseMainActivity'), 'Activity should extend BaseMainActivity');
+console.log('  PASS: --package parameter works correctly');
+
+// Test: MainApplication generated per country
+const mainAppFile = path.join(activityDir, 'MainApplication.kt');
+assert(fs.existsSync(mainAppFile), `MainApplication not found: ${mainAppFile}`);
+const mainAppContent = fs.readFileSync(mainAppFile, 'utf8');
+assert(mainAppContent.includes(`package ${TEST_PACKAGE}`), 'MainApplication should have custom package declaration');
+assert(mainAppContent.includes('BaseApplication'), 'MainApplication should extend BaseApplication');
+console.log('  PASS: MainApplication generated correctly');
+
+// Clean up
+cleanupCountry('us');
+cleanupCountry(TEST_COUNTRY);
 
 // =====================
 // REMOVE COUNTRY TESTS
 // =====================
 console.log(`\nTesting remove-country script with country='${TEST_COUNTRY}'...`);
+
+// Set up: add br and us
+runAddScript(TEST_COUNTRY, TEST_APP_ID, TEST_ACTIVITY, TEST_APP_NAME, TEST_API_URL, TEST_LOCALE);
+runAddScript('us', 'com.us.app', 'UsActivity', 'USApp', 'https://api.us.example.com', 'en-US');
 
 const removeResult = runRemoveScript(TEST_COUNTRY);
 assert(removeResult.success, `Remove script should succeed: ${removeResult.output}`);
@@ -156,49 +195,35 @@ assert(!fs.existsSync(entryFile), `Entry file should be removed: ${entryFile}`);
 console.log('  PASS: JS entry file removed');
 
 // Test: JS country directory removed
-assert(!fs.existsSync(path.join(projectRoot, `src/${TEST_COUNTRY}`)), `JS country directory should be removed`);
+assert(!fs.existsSync(path.join(projectRoot, `src/${TEST_COUNTRY}`)), 'JS country directory should be removed');
 console.log('  PASS: JS country directory removed');
 
 // Test: Android source set removed
-assert(!fs.existsSync(path.join(projectRoot, `android/app/src/${TEST_COUNTRY}`)), `Android source set should be removed`);
+assert(!fs.existsSync(path.join(projectRoot, `android/app/src/${TEST_COUNTRY}`)), 'Android source set should be removed');
 console.log('  PASS: Android source set removed');
 
 // Test: Gradle config updated
 const gradleAfterRemove = fs.readFileSync(gradlePath, 'utf8');
 assert(!gradleAfterRemove.includes(`${TEST_COUNTRY}: [`), 'Gradle should not contain removed country flavor');
 assert(!gradleAfterRemove.includes(TEST_APP_ID), 'Gradle should not contain removed applicationId');
-// Existing countries should still be there
-assert(gradleAfterRemove.includes('cn: ['), 'Gradle should still contain cn flavor');
-assert(gradleAfterRemove.includes('mx: ['), 'Gradle should still contain mx flavor');
 console.log('  PASS: Gradle config updated correctly');
 
-// Test: ESLint countryDirs updated
-const eslintPluginPath = path.join(projectRoot, 'eslint-plugin-import-boundary', 'index.js');
-const eslintContent = fs.readFileSync(eslintPluginPath, 'utf8');
-assert(!eslintContent.includes(`'${TEST_COUNTRY}'`), 'ESLint plugin should not contain removed country');
-assert(eslintContent.includes("'cn'"), 'ESLint plugin should still contain cn');
-assert(eslintContent.includes("'mx'"), 'ESLint plugin should still contain mx');
-console.log('  PASS: ESLint countryDirs updated correctly');
+// Test: country-dirs.json updated
+const dirsAfterRemove = getCountryDirs();
+assert(!dirsAfterRemove.includes(TEST_COUNTRY), 'country-dirs.json should not contain removed country');
+console.log('  PASS: country-dirs.json updated correctly');
 
 // Test: Rejects removing non-existent country
 const removeNonExistResult = runRemoveScript('zz');
 assert(!removeNonExistResult.success, 'Remove script should fail for non-existent country');
 console.log('  PASS: Rejects non-existent country code');
 
-// Test: Rejects removing last country (remove both cn and mx should fail at the second one)
-// First add br back so we can test removing the last one
-runAddScript(TEST_COUNTRY, TEST_APP_ID, TEST_ACTIVITY, TEST_APP_NAME, TEST_API_URL, TEST_LOCALE);
-// Remove br
-runRemoveScript(TEST_COUNTRY);
-// Now only cn and mx remain - try to remove both
-const removeCnResult = runRemoveScript('cn');
-assert(removeCnResult.success, 'Should be able to remove cn when mx still exists');
-const removeLastResult = runRemoveScript('mx');
-assert(!removeLastResult.success, 'Should not be able to remove the last country');
-// Restore cn
-runAddScript('cn', 'com.zhongguo.app', 'ZhongguoActivity', '中国App', 'https://api.cn.example.com', 'zh-CN');
-console.log('  PASS: Prevents removing the last country');
+// Test: Allows removing the last country
+const removeLastResult = runRemoveScript('us');
+assert(removeLastResult.success, 'Should be able to remove the last country');
+assert(!fs.existsSync(path.join(projectRoot, 'src/us')), 'Last country directory should be removed');
+console.log('  PASS: Allows removing the last country');
 
-cleanup();
+cleanupAll();
 
 console.log('\nAll scaffolding tests passed!');

@@ -5,8 +5,6 @@ apply plugin: "com.facebook.react"
 // Single source of truth for country flavors and their JS entry files (ADR-0002)
 // Both productFlavors, debuggableVariants, and the release bundle task read from this map
 ext.countryFlavors = [
-    mx: [applicationId: "com.mexico.app", jsEntry: "index.mx", entryFile: "index.mx.js", activityName: "MexicoMainActivity"],
-    cn: [applicationId: "com.zhongguo.app", jsEntry: "index.cn", entryFile: "index.cn.js", activityName: "ZhongguoActivity"],
 ]
 
 /**
@@ -40,9 +38,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.helloworld"
+    namespace "com.multi.template"
     defaultConfig {
-        applicationId "com.helloworld"
+        applicationId "com.multi.template"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
@@ -56,7 +54,7 @@ android {
     flavorDimensions = ["country"]
     productFlavors {
         project.ext.countryFlavors.each { name, config ->
-            "$name" {
+            create(name) {
                 dimension "country"
                 applicationId config.applicationId
                 buildConfigField "String", "JS_ENTRY", "\"${config.jsEntry}\""
@@ -81,7 +79,7 @@ android {
             // see https://reactnative.dev/docs/signed-apk-android.
             signingConfig signingConfigs.debug
             minifyEnabled enableProguardInReleaseBuilds
-            proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
         }
     }
 }

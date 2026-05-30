@@ -10,13 +10,7 @@ if (args.length < 1) {
 }
 
 const countryCode = args[0];
-const projectRoot = path.resolve(__dirname, '..');
-
-// Validate country code
-if (!/^[a-z]{2}$/.test(countryCode)) {
-  console.error('Error: Country code must be 2 lowercase letters (e.g., br, jp)');
-  process.exit(1);
-}
+const projectRoot = process.cwd();
 
 // Check if country exists
 const srcDir = path.join(projectRoot, 'src', countryCode);
@@ -44,13 +38,6 @@ if (!gradleContent.includes(`${countryCode}: [`)) {
   process.exit(1);
 }
 
-// Prevent removing the last country
-const flavorEntries = gradleContent.match(/\n    [a-z]{2}: \[/g);
-if (flavorEntries && flavorEntries.length <= 1) {
-  console.error('Error: Cannot remove the last country — at least one country must remain');
-  process.exit(1);
-}
-
 console.log(`Removing country: ${countryCode}`);
 
 // 1. Remove JS entry file
@@ -73,20 +60,13 @@ updatedGradle = updatedGradle.replace(flavorEntryRegex, '\n');
 fs.writeFileSync(gradlePath, updatedGradle);
 console.log(`  Updated: android/app/build.gradle`);
 
-// 5. Remove country from ESLint plugin's countryDirs list
-const eslintPluginPath = path.join(projectRoot, 'eslint-plugin-import-boundary', 'index.js');
-if (fs.existsSync(eslintPluginPath)) {
-  let eslintContent = fs.readFileSync(eslintPluginPath, 'utf8');
-  eslintContent = eslintContent.replace(
-    /const countryDirs = \[([^\]]+)\]/,
-    (match, existing) => {
-      const dirs = existing.match(/'[^']+'/g) || [];
-      const filtered = dirs.filter(d => d !== `'${countryCode}'`);
-      return `const countryDirs = [${filtered.join(', ')}]`;
-    }
-  );
-  fs.writeFileSync(eslintPluginPath, eslintContent);
-  console.log(`  Updated: eslint-plugin-import-boundary/index.js`);
+// 5. Remove country from ESLint plugin's countryDirs JSON file
+const countryDirsPath = path.join(projectRoot, 'eslint-plugin-import-boundary', 'country-dirs.json');
+if (fs.existsSync(countryDirsPath)) {
+  const countryDirs = JSON.parse(fs.readFileSync(countryDirsPath, 'utf8'));
+  const filtered = countryDirs.filter(d => d !== countryCode);
+  fs.writeFileSync(countryDirsPath, JSON.stringify(filtered, null, 2) + '\n');
+  console.log(`  Updated: eslint-plugin-import-boundary/country-dirs.json`);
 }
 
 console.log('');

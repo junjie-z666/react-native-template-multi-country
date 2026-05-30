@@ -1,6 +1,7 @@
 const js = require('@eslint/js');
 const tseslint = require('typescript-eslint');
 const importBoundaryPlugin = require('./eslint-plugin-import-boundary');
+const countryDirs = require('./eslint-plugin-import-boundary/country-dirs.json');
 
 const projectRoot = require('path').resolve(__dirname);
 
@@ -13,7 +14,7 @@ module.exports = tseslint.config(
       'import-boundary': importBoundaryPlugin,
     },
     rules: {
-      'import-boundary/import-boundary': ['error', {projectRoot}],
+      'import-boundary/import-boundary': ['error', {projectRoot, countryDirs}],
     },
   },
 );

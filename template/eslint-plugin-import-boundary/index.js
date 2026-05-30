@@ -1,12 +1,12 @@
 const path = require('path');
 
-function getCountryFromFilePath(filePath, projectRoot) {
+const DEFAULT_COUNTRY_DIRS = [];
+
+function getCountryFromFilePath(filePath, projectRoot, countryDirs) {
   const srcDir = path.join(projectRoot, 'src');
   const relative = path.relative(srcDir, filePath);
   const parts = relative.split(path.sep);
   if (parts.length < 2) return null;
-
-  const countryDirs = ['mx', 'cn'];
 
   if (countryDirs.includes(parts[0])) {
     return parts[0];
@@ -17,7 +17,7 @@ function getCountryFromFilePath(filePath, projectRoot) {
   return null;
 }
 
-function isImportFromSrc(importPath, projectRoot, fromFilePath) {
+function isImportFromSrc(importPath, projectRoot, fromFilePath, countryDirs) {
   if (importPath.startsWith('@base')) {
     return 'base';
   }
@@ -28,7 +28,7 @@ function isImportFromSrc(importPath, projectRoot, fromFilePath) {
   const relativeFromSrc = path.relative(srcRoot, fromFilePath);
   const fromDirInSrc = path.dirname(relativeFromSrc);
   const resolvedInSrc = path.resolve(path.join(srcRoot, fromDirInSrc), importPath);
-  return getCountryFromFilePath(resolvedInSrc, projectRoot);
+  return getCountryFromFilePath(resolvedInSrc, projectRoot, countryDirs);
 }
 
 const importBoundaryRule = {
@@ -51,6 +51,10 @@ const importBoundaryRule = {
           projectRoot: {
             type: 'string',
           },
+          countryDirs: {
+            type: 'array',
+            items: {type: 'string'},
+          },
         },
         additionalProperties: false,
       },
@@ -60,15 +64,16 @@ const importBoundaryRule = {
   create(context) {
     const options = context.options[0] || {};
     const projectRoot = options.projectRoot || process.cwd();
+    const countryDirs = options.countryDirs || DEFAULT_COUNTRY_DIRS;
 
     return {
       ImportDeclaration(node) {
         const importPath = node.source.value;
         const filePath = context.filename || context.getFilename();
-        const fromCountry = getCountryFromFilePath(filePath, projectRoot);
+        const fromCountry = getCountryFromFilePath(filePath, projectRoot, countryDirs);
         if (!fromCountry) return;
 
-        const toCountry = isImportFromSrc(importPath, projectRoot, filePath);
+        const toCountry = isImportFromSrc(importPath, projectRoot, filePath, countryDirs);
         if (!toCountry) return;
 
         if (fromCountry !== 'base' && toCountry !== 'base' && fromCountry !== toCountry) {

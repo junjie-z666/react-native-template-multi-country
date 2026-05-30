@@ -1,5 +1,5 @@
 {
-  "name": "HelloWorld",
+  "name": "{{APP_NAME}}",
   "version": "0.0.1",
   "private": true,
   "scripts": {
@@ -8,6 +8,7 @@
     "lint": "eslint .",
     "start": "react-native start",
     "test": "jest",
+    "init-country": "node scripts/post-init.js",
     "prepare": "husky"
   },
   "dependencies": {
@@ -34,15 +35,13 @@
     "@types/react-test-renderer": "^19.1.0",
     "babel-plugin-module-resolver": "^5.0.3",
     "eslint": "^8.19.0",
-    "eslint-vitest-rule-tester": "^3.1.0",
     "husky": "^9.1.7",
     "jest": "^29.6.3",
     "lint-staged": "^16.0.0",
     "prettier": "2.8.8",
     "react-test-renderer": "19.1.0",
     "typescript": "^5.8.3",
-    "typescript-eslint": "^8.60.0",
-    "vitest": "^4.1.7"
+    "typescript-eslint": "^8.60.0"
   },
   "engines": {
     "node": ">=20"

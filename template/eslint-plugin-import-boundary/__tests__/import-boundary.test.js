@@ -3,13 +3,14 @@ const {Linter} = require('eslint');
 const rule = require('../index').rules['import-boundary'];
 
 const projectRoot = '/project';
+const countryDirs = ['cn', 'mx'];
 
 function lint(code, filename) {
   const linter = new Linter();
   linter.defineRule('import-boundary', rule);
   return linter.verify(code, {
     parserOptions: {ecmaVersion: 2022, sourceType: 'module'},
-    rules: {'import-boundary': ['error', {projectRoot}]},
+    rules: {'import-boundary': ['error', {projectRoot, countryDirs}]},
   }, {filename});
 }
 
