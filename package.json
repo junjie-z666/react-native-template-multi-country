@@ -1,6 +1,6 @@
 {
-  "name": "react-native-template-multi-country",
-  "version": "0.1.0",
+  "name": "@azsxdc12356/react-native-template-multi-country",
+  "version": "1.0.0",
   "description": "React Native template for multi-country deployment with anti-association architecture",
   "files": ["template", "template.config.js"],
   "keywords": [
@@ -10,5 +10,14 @@
     "flavor",
     "anti-association"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/junjie-z666/react-native-template-multi-country.git"
+  },
+  "bugs": {
+    "url": "https://github.com/junjie-z666/react-native-template-multi-country/issues"
+  },
+  "homepage": "https://github.com/junjie-z666/react-native-template-multi-country#readme",
+  "author": "zjj",
   "license": "MIT"
 }

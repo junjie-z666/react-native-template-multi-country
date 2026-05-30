@@ -9,7 +9,7 @@
     "start": "react-native start",
     "test": "jest",
     "init-country": "node scripts/post-init.js",
-    "add-country": "node scripts/add-country.js",
+    "add-country": "node scripts/post-init.js",
     "remove-country": "node scripts/remove-country.js",
     "setup-hooks": "git config core.hooksPath .husky"
   },

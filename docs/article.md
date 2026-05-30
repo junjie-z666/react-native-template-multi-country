@@ -46,21 +46,15 @@ graph TB
     end
 
     subgraph Android Layer
-        PF --> CN_SRC[cn source set]
-        PF --> MX_SRC[mx source set]
-        CN_SRC --> CN_A[ZhongguoActivity]
-        MX_SRC --> MX_A[MexicoMainActivity]
-        CN_A --> BA[BaseActivity]
-        MX_A --> BA
+        PF --> C_SRC[country source set]
+        C_SRC --> A[CountryActivity]
+        A --> BA[BaseMainActivity]
     end
 
     subgraph JS Layer
-        EF --> CN_JS[index.cn.js]
-        EF --> MX_JS[index.mx.js]
-        CN_JS --> CN_APP[src/cn/App.tsx]
-        MX_JS --> MX_APP[src/mx/App.tsx]
-        CN_APP --> BASE[src/base/BaseApp]
-        MX_APP --> BASE
+        EF --> IDX[index.country.js]
+        IDX --> APP[src/country/App.tsx]
+        APP --> BASE[src/base/BaseApp]
         BASE --> CC[CountryConfig]
     end
 ```
@@ -82,6 +76,75 @@ export interface CountryConfig {
 
 就这四个字段，已经足以让同一个 `BaseApp` 渲染出完全不同的 App。
 
+## 模板机制
+
+这个架构以 React Native 模板的形式发布。理解模板的工作机制，对使用和二次开发都很重要。
+
+### 用户视角：如何使用模板
+
+安装命令：
+
+```bash
+npx react-native init MyApp --template @azsxdc12356/react-native-template-multi-country
+```
+
+执行后，RN CLI 会：
+
+1. 读取模板根目录的 `template.config.js`
+2. 将 `template/` 目录下的内容复制到新项目
+3. 替换 `{{APP_NAME}}` 等占位符
+4. 执行 `postInitScript`（即 `template/scripts/post-init.js`）
+
+然后用户进入项目，执行：
+
+```bash
+cd MyApp
+yarn install
+yarn init-country     # 交互式初始化，添加第一个国家
+yarn setup-hooks      # 配置 husky（必须在 git init 后执行）
+```
+
+### 开发者视角：模板是如何工作的
+
+模板仓库的结构：
+
+```
+├── package.json              # 模板包本身的 npm 配置
+├── template.config.js          # RN CLI 模板入口配置
+├── template/                   # 实际的项目模板内容
+│   ├── package.json            # 最终项目的 package.json
+│   ├── scripts/
+│   │   └── post-init.js        # 初始化后执行的脚本
+│   └── ...                     # 其他项目文件
+└── docs/                       # 文档
+```
+
+`template.config.js` 定义了三个关键字段：
+
+```javascript
+module.exports = {
+  placeholderName: "{{APP_NAME}}",
+  templateDir: "./template",
+  postInitScript: "./template/scripts/post-init.js",
+};
+```
+
+- `placeholderName`：RN CLI 会把这个占位符替换为实际的项目名
+- `templateDir`：指向模板内容所在的目录
+- `postInitScript`：初始化完成后执行的脚本路径
+
+`post-init.js` 的职责：
+
+1. 修复 `{{APP_NAME}}` 占位符（在 `package.json`、`app.json`、`settings.gradle` 中）
+2. 交互式收集第一个国家的信息
+3. 调用 `add-country.js` 生成该国家的完整骨架
+
+### 为什么 husky 需要手动配置
+
+`post-init.js` 执行时，git 仓库刚刚初始化，`.git` 目录已经存在。但 husky 的配置（`git config core.hooksPath .husky`）需要在 git 初始化后才能执行。由于 RN CLI 的初始化流程限制，我们无法在 `postInitScript` 中安全地执行这一步（不同版本的 RN CLI 行为不一致），所以将其作为一个独立的命令 `yarn setup-hooks`，由用户在安装依赖后手动执行。
+
+这是模板设计中唯一需要手动的一步，其余全部自动化。
+
 ## 如何做到区分
 
 这是整个架构最核心的部分。我们分 Android 层和 JS 层两条线来讲。
@@ -93,45 +156,47 @@ Android 的差异化靠的是 Gradle 的 product flavors 机制。在 `android/a
 ```groovy
 ext.countryFlavors = [
     cn: [applicationId: "com.zhongguo.app", jsEntry: "index.cn",
-         entryFile: "index.cn.js", activityName: "ZhongguoActivity"],
-    mx: [applicationId: "com.mexico.app", jsEntry: "index.mx",
-         entryFile: "index.mx.js", activityName: "MexicoMainActivity"],
+         entryFile: "index.cn.js", activityName: "ZhongguoActivity",
+         mainComponentName: "cnApp"],
 ]
 ```
 
-注意 `cn` 和 `mx` 的 `applicationId` 完全不同（`com.zhongguo.app` vs `com.mexico.app`），这就是防关联的关键——应用商店看到的两个 App 包名毫无关联。
+每个 flavor 的 `applicationId` 完全无关，这就是防关联的关键。
 
-接着，`productFlavors` 块从这个 Map 动态生成 flavor 声明：
+`productFlavors` 块从这个 Map 动态生成：
 
 ```groovy
 flavorDimensions = ["country"]
 productFlavors {
     project.ext.countryFlavors.each { name, config ->
-        "$name" {
+        create(name) {
             dimension "country"
             applicationId config.applicationId
             buildConfigField "String", "JS_ENTRY", "\"${config.jsEntry}\""
+            buildConfigField "String", "MAIN_COMPONENT_NAME", "\"${config.mainComponentName}\""
         }
     }
 }
 ```
 
-这意味着执行 `./gradlew assembleCnDebug` 会打出包名为 `com.zhongguo.app` 的 APK，而 `./gradlew assembleMxDebug` 会打出 `com.mexico.app` 的 APK。
+这意味着执行 `./gradlew assembleCnDebug` 会打出包名为对应 applicationId 的 APK。
 
-**每个 flavor 还有独立的 source set。** `android/app/src/cn/` 和 `android/app/src/mx/` 各自包含独立的 `AndroidManifest.xml`、Activity 类、资源文件（图标、字符串）。以中国为例，它有独立的 `ZhongguoActivity`：
+**每个 flavor 还有独立的 source set。** `android/app/src/<country>/` 各自包含独立的 `AndroidManifest.xml`、Activity 类、资源文件（图标、字符串）。
+
+所有国家的 Activity 都继承自共享的 `BaseMainActivity`：
 
 ```kotlin
-class ZhongguoActivity : BaseActivity()
+abstract class BaseMainActivity : ReactActivity() {
+    override fun getMainComponentName(): String = BuildConfig.MAIN_COMPONENT_NAME
+    override fun createReactActivityDelegate(): ReactActivityDelegate =
+        DefaultReactActivityDelegate(this, mainComponentName!!, fabricEnabled)
+}
 ```
 
-所有国家的 Activity 都继承自共享的 `BaseActivity`，后者只做了两件事——声明 React Native 的 main component name 和创建 delegate：
+`BaseApplication` 同样从 `BuildConfig` 读取 JS 入口：
 
 ```kotlin
-abstract class BaseActivity : ReactActivity() {
-    override fun getMainComponentName(): String = "MultiCountryDemo"
-    override fun createReactActivityDelegate(): ReactActivityDelegate =
-        DefaultReactActivityDelegate(this, mainComponentName, fabricEnabled)
-}
+override fun getJSMainModuleName(): String = BuildConfig.JS_ENTRY
 ```
 
 ### release bundle 的 entryFile 路由
@@ -155,8 +220,6 @@ afterEvaluate {
 }
 ```
 
-这段代码的意思是：当 Gradle 创建 `createBundleCnReleaseJsAndAssets` 这个 task 时，自动把它的 `entryFile` 设为 `index.cn.js`。同样，`mx` 的 release bundle 会用 `index.mx.js`。
-
 `debuggableVariants` 也从同一个 Map 派生：
 
 ```groovy
@@ -174,18 +237,17 @@ react {
 ```javascript
 import { AppRegistry } from "react-native";
 import { App } from "./src/cn/App";
-import { name as appName } from "./app.json";
 
-AppRegistry.registerComponent(appName, () => App);
+AppRegistry.registerComponent("cnApp", () => App);
 ```
 
-`index.mx.js` 则引入 `./src/mx/App`。两个入口文件结构完全一致，只是指向不同的 App 组件。
+注意 `registerComponent` 的第一个参数是 `mainComponentName`（如 `"cnApp"`），而不是 `appName`。这个名称必须与 `build.gradle` 中 `mainComponentName` 字段一致，Android 端才能正确加载 JS bundle。
 
-Metro bundler 会根据入口文件的不同，打出两个独立的 JS bundle，互不干扰。
+Metro bundler 会根据入口文件的不同，打出独立的 JS bundle。
 
 ### 配置注入与 i18n
 
-每个国家的 `App.tsx` 负责两件事：声明自己的 `CountryConfig`，以及初始化 i18n。以中国为例：
+每个国家的 `App.tsx` 负责两件事：声明自己的 `CountryConfig`，以及初始化 i18n：
 
 ```typescript
 const cnConfig: CountryConfig = {
@@ -195,7 +257,7 @@ const cnConfig: CountryConfig = {
   defaultLocale: "zh-CN",
 };
 
-initI18n({ "zh-CN": cnTranslations }, cnConfig.defaultLocale);
+initI18n({}, cnConfig.defaultLocale);
 
 export function App(): React.JSX.Element {
   return <BaseApp config={cnConfig} />;
@@ -226,13 +288,11 @@ export function initI18n(
 
 ## 如何防止跨国家引用
 
-架构设计好了，但如果没有工具约束，开发者很容易写出 `import { something } from '../mx/App'` 这样的跨国家引用。一旦中国版代码引入了墨西哥版的模块，打包出来的 JS bundle 就不再干净了。
-
-我们需要两道防线：
+架构设计好了，但如果没有工具约束，开发者很容易写出跨国家引用。我们需要两道防线：
 
 ### 第一道：ESLint import-boundary 规则
 
-我们编写了一个自定义 ESLint 插件 `eslint-plugin-import-boundary`，它根据文件路径判断当前文件属于哪个"国家"，再检查 import 目标属于哪个"国家"，然后执行以下规则：
+自定义 ESLint 插件 `eslint-plugin-import-boundary` 根据文件路径判断当前文件属于哪个"国家"，再检查 import 目标属于哪个"国家"，执行以下规则：
 
 | 来源      | 目标      | 结果     |
 | --------- | --------- | -------- |
@@ -241,45 +301,7 @@ export function initI18n(
 | Country   | Base      | 允许     |
 | Base      | Base      | 允许     |
 
-核心逻辑非常简洁：
-
-```javascript
-function getCountryFromFilePath(filePath, projectRoot) {
-  const srcDir = path.join(projectRoot, "src");
-  const relative = path.relative(srcDir, filePath);
-  const parts = relative.split(path.sep);
-  if (parts.length < 2) return null;
-
-  const countryDirs = ["cn", "mx", "br"];
-  if (countryDirs.includes(parts[0])) return parts[0];
-  if (parts[0] === "base") return "base";
-  return null;
-}
-```
-
-在 ESLint 配置中启用这个规则：
-
-```javascript
-module.exports = tseslint.config(
-  js.configs.recommended,
-  ...tseslint.configs.recommended,
-  {
-    files: ["src/**/*.{ts,tsx}"],
-    plugins: {
-      "import-boundary": importBoundaryPlugin,
-    },
-    rules: {
-      "import-boundary/import-boundary": ["error", { projectRoot }],
-    },
-  }
-);
-```
-
-这样，任何跨国家的 import 在编辑器里就会直接报错。
-
 ### 第二道：Husky pre-commit hook
-
-ESLint 规则只在编辑器里提示还不够——如果开发者无视红色波浪线强行提交呢？我们需要在 Git 提交时再拦一道。
 
 通过 Husky + lint-staged，配置 pre-commit hook：
 
@@ -288,47 +310,45 @@ ESLint 规则只在编辑器里提示还不够——如果开发者无视红色�
 npx lint-staged
 ```
 
-`lint-staged` 只会对暂存区（staged）的文件运行 ESLint，既精准又不影响开发体验。如果暂存的文件中存在跨国家引用，`git commit` 会直接失败，违规代码无法入库。
+`lint-staged` 只会对暂存区的文件运行 ESLint，既精准又不影响开发体验。如果暂存的文件中存在跨国家引用，`git commit` 会直接失败。
 
-**规则 + 自动执行的组合拳，让约束真正落地，而不是停留在"请大家自觉遵守"的层面。**
+**规则 + 自动执行的组合拳，让约束真正落地。**
 
 ## 如何添加新国家
 
 架构再好，如果添加新国家需要手动改十几个文件，那也很容易出错。所以我们提供了一个脚手架脚本，一条命令搞定：
 
 ```bash
+yarn add-country
+```
+
+这会以交互式方式引导你输入新国家的信息。如果你需要非交互式执行，可以直接调用底层脚本：
+
+```bash
 node scripts/add-country.js <country-code> <application-id> <activity-class-name> [app-name] [api-base-url] [default-locale]
 ```
 
-比如添加一个巴西市场：
-
-```bash
-node scripts/add-country.js br com.brazil.app BrazilActivity "Brazil App" https://api.br.example.com pt-BR
-```
-
-脚本会按顺序执行以下步骤：
+`add-country.js` 会按顺序执行以下步骤：
 
 1. **校验参数**：国家代码必须是 2 位小写字母，不允许重复添加
-2. **创建 JS 入口文件**：`index.br.js`，指向 `src/br/App`
-3. **创建 JS 国家目录**：`src/br/App.tsx`（包含 `CountryConfig` 声明）+ `src/br/locales/` 下的翻译占位文件
-4. **创建 Android source set**：Activity 类（继承 `BaseActivity`）、`AndroidManifest.xml`（声明 launcher Activity）
-5. **创建 Android 资源**：`strings.xml`（应用名）+ 5 个密度（mdpi ~ xxxhdpi）的 mipmap 占位图标
-6. **更新 `build.gradle`**：往 `ext.countryFlavors` Map 中添加一条新记录
-7. **更新 ESLint 插件**：往 `countryDirs` 数组中添加新的国家代码
+2. **创建 JS 入口文件**：`index.<code>.js`
+3. **创建 JS 国家目录**：`src/<code>/App.tsx` + `src/<code>/locales/` 翻译占位文件
+4. **创建 Android source set**：Activity 类（继承 `BaseMainActivity`）、`AndroidManifest.xml`、Application 类
+5. **创建 Android 资源**：`strings.xml` + 5 个密度的 mipmap 占位图标
+6. **更新 `build.gradle`**：往 `ext.countryFlavors` Map 中添加新记录
+7. **更新 ESLint 插件**：往 `country-dirs.json` 中添加新的国家代码
 
-执行完毕后，脚本还会打印 next steps 提示，比如替换占位图标、添加实际翻译文件等。
-
-**整个过程开发者只需要提供国家代码、applicationId 和 Activity 类名这三个必填参数，其余全部自动生成。**
+执行完毕后，脚本还会打印 next steps 提示。
 
 ## 局限与展望
 
 这个架构解决了"一仓库出多 App"的核心问题，但作为基础框架，它还有一些已知的局限：
 
 - **iOS 未覆盖。** 当前方案只实现了 Android 端的多 flavor 构建，iOS 侧需要通过 Xcode targets 来实现类似效果，这部分尚未涉及。
-- **所有国家共享一套 npm 依赖。** 无法按国家差异化引入依赖——如果中国版需要微信 SDK 而墨西哥版不需要，目前没有好的隔离手段。
-- **无 CI/CD 集成。** 多 flavor 的构建命令已经就绪（`./gradlew assembleCnRelease`），但缺少自动化流水线来批量构建和发布。
-- **无导航和状态管理。** 当前只搭建了 UI 骨架，实际业务中还需要集成导航库（React Navigation）和状态管理方案。
+- **所有国家共享一套 npm 依赖。** 无法按国家差异化引入依赖。
+- **无 CI/CD 集成。** 多 flavor 的构建命令已经就绪，但缺少自动化流水线来批量构建和发布。
+- **无导航和状态管理。** 当前只搭建了 UI 骨架，实际业务中还需要集成导航库和状态管理方案。
 
-**定位上，这是一个基础框架。** 它的价值不在于"开箱即用"，而在于"基于它搭建比从零开始更方便"——你不用自己处理 product flavors 的配置、JS 入口的路由、import 边界的约束这些基础设施层面的问题。
+**定位上，这是一个基础框架。** 它的价值不在于"开箱即用"，而在于"基于它搭建比从零开始更方便"。
 
 如果你的业务也需要在海外多个国家上线独立的 App，希望这个架构能给你一个可复用的起点。
