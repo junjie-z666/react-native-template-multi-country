@@ -100,11 +100,9 @@ async function main() {
   console.log(initMode ? '  Setup complete!' : '  Country added!');
   console.log('========================================');
   console.log('\nNext steps:');
-  console.log('  1. Replace placeholder launcher icons');
-  console.log('  2. Add translations in src/<country>/locales/');
-  console.log('  3. yarn setup-hooks (enable git hooks for lint-staged)');
-  console.log('  4. yarn start');
-  console.log('  5. npx react-native run-android --variant <country>Debug\n');
+  console.log('  1. yarn setup-hooks (enable git hooks for lint-staged)');
+  console.log('  2. yarn start');
+  console.log('  3. npx react-native run-android --variant <country>Debug\n');
 }
 
 main().catch(err => {

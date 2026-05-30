@@ -190,12 +190,3 @@ if (fs.existsSync(countryDirsPath)) {
 
 console.log('');
 console.log(`Country '${countryCode}' has been added successfully!`);
-console.log('');
-console.log('Next steps:');
-console.log(`  1. Replace placeholder launcher icons in android/app/src/${countryCode}/res/mipmap-*/`);
-console.log(`  2. Add actual translations in src/${countryCode}/locales/`);
-console.log('  3. Run: yarn install');
-console.log(`  4. Build: cd android && ./gradlew assemble${countryCode.charAt(0).toUpperCase() + countryCode.slice(1)}Debug`);
-console.log('');
-console.log('To verify, run:');
-console.log(`  npx react-native run-android --variant ${countryCode}Debug`);
