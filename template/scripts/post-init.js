@@ -84,6 +84,14 @@ async function main() {
   if (initMode) {
     console.log('[init] Project root:', projectRoot);
     fixPlaceholders();
+
+    // Initialize husky git hooks (prepare script may have run before .git existed)
+    try {
+      execSync('npx husky init', {cwd: projectRoot, stdio: 'inherit'});
+      console.log('[init] Husky git hooks initialized');
+    } catch (e) {
+      console.warn('[init] Warning: husky init failed, you may need to run "npx husky init" manually');
+    }
   }
 
   const info = await promptCountry();
