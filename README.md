@@ -24,7 +24,6 @@ npx react-native init MyApp --template @azsxdc12356/react-native-template-multi-
 cd MyApp
 yarn install
 yarn init-country    # 交互式初始化：设置 Android 包名 + 添加首个国家
-yarn setup-hooks     # 配置 git hooks（必须在 git init 后执行）
 yarn start
 npx react-native run-android --variant <country>Debug
 ```

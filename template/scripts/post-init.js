@@ -27,6 +27,20 @@ function ask(question, defaultVal) {
   });
 }
 
+function setupHusky() {
+  const huskyDir = path.join(projectRoot, '.husky');
+  const preCommitPath = path.join(huskyDir, 'pre-commit');
+  if (fs.existsSync(preCommitPath)) {
+    try {
+      fs.chmodSync(preCommitPath, 0o755);
+      execSync('git config core.hooksPath .husky', {cwd: projectRoot, stdio: 'ignore'});
+      console.log('  Git hooks configured.');
+    } catch (err) {
+      console.warn('  Warning: failed to configure git hooks:', err.message);
+    }
+  }
+}
+
 function fixPlaceholders() {
   const dirName = path.basename(projectRoot);
   const replacements = [
@@ -84,6 +98,7 @@ async function main() {
   if (initMode) {
     console.log('[init] Project root:', projectRoot);
     fixPlaceholders();
+    setupHusky();
   }
 
   const info = await promptCountry();

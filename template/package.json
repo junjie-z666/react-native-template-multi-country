@@ -10,8 +10,7 @@
     "test": "jest",
     "init-country": "node scripts/post-init.js",
     "add-country": "node scripts/post-init.js",
-    "remove-country": "node scripts/remove-country.js",
-    "setup-hooks": "git config core.hooksPath .husky"
+    "remove-country": "node scripts/remove-country.js"
   },
   "dependencies": {
     "@react-native/new-app-screen": "0.81.6",
